@@ -1,0 +1,4 @@
+requests==2.31.0
+jira==3.5.1
+python-dotenv==1.0.0
+standard-imghdr==0.1.1
