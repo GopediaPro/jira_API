@@ -1,0 +1,3 @@
+"""
+Jira API Manager Package
+""" 

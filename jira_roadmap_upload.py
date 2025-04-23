@@ -69,20 +69,6 @@ def get_project_issue_types():
         print(response.text)
         return []
 
-# JIRA에서 필드 정보 가져오기
-def get_available_fields():
-    url = f"{JIRA_INSTANCE}/rest/api/3/field"
-    response = requests.get(url, headers=get_auth_header())
-    
-    if response.status_code == 200:
-        fields = response.json()
-        # 필드 ID를 키로 하는 딕셔너리 생성
-        field_dict = {field['id']: field for field in fields}
-        return field_dict
-    else:
-        print(f"필드 정보 조회 실패: {response.status_code}")
-        print(response.text)
-        return {}
 
 # Epic 생성 함수
 def create_epic(summary, description, is_real_epic=True):
@@ -92,6 +78,8 @@ def create_epic(summary, description, is_real_epic=True):
     issue_types = get_project_issue_types()
     epic_id = None
     task_id = None
+    epic_key = None
+    subtask_id = None
     
     # 프로젝트에서 사용 가능한 이슈 타입 ID 찾기
     for issue_type in issue_types:
@@ -101,6 +89,8 @@ def create_epic(summary, description, is_real_epic=True):
             epic_id = id
         elif name == 'task':
             task_id = id
+        elif name == 'sub-task':
+            subtask_id = id
     
     # 이슈 타입 ID 설정
     if is_real_epic and epic_id:
@@ -173,11 +163,12 @@ def create_epic(summary, description, is_real_epic=True):
 # Task/Sub-task 생성 함수
 def create_task(summary, description, epic_key=None, parent_key=None, issue_type="Task", 
                 priority="Medium", story_points=None, start_date=None, due_date=None, 
-                category=None, labels=None):
+                labels=None):
     url = f"{JIRA_INSTANCE}/rest/api/3/issue"
     
     # 이슈 타입 ID 확인
     issue_types = get_project_issue_types()
+    epic_id = None
     task_id = None
     subtask_id = None
     
@@ -185,7 +176,9 @@ def create_task(summary, description, epic_key=None, parent_key=None, issue_type
     for issue_type_info in issue_types:
         name = issue_type_info.get('name', '').lower()
         id = issue_type_info.get('id')
-        if name == 'task':
+        if name == 'epic':
+            epic_id = id
+        elif name == 'task':
             task_id = id
         elif name == 'sub-task':
             subtask_id = id
@@ -221,23 +214,7 @@ def create_task(summary, description, epic_key=None, parent_key=None, issue_type
     # Sub-task인 경우 부모 이슈 연결 (필수 필드)
     if is_subtask and parent_key:
         fields["parent"] = {"key": parent_key}
-    
-    # 사용 가능한 필드 정보 가져오기
-    available_fields = get_available_fields()
-    
-    # Add category if available and valid
-    if category:
-        # 유효한 카테고리 값 목록 가져오기 (실제로는 API 호출이 필요할 수 있음)
-        valid_categories = ["Infrastructure", "Core Services", "Security", "Frontend", 
-                           "Integration", "Automation", "AI", "Database", "Knowledge",
-                           "Dashboard", "Monitoring", "ERP", "Search", "Performance",
-                           "UX", "Localization", "Testing", "Stability", "Analytics", 
-                           "Architecture", "Data", "Reliability", "Network"]
         
-        # 유효한 카테고리인 경우에만 추가
-        if category in valid_categories and "customfield_10031" in available_fields:
-            fields["customfield_10031"] = {"value": category}
-    
     # Add labels if available
     labels_list = labels or []
     
@@ -245,39 +222,16 @@ def create_task(summary, description, epic_key=None, parent_key=None, issue_type
     if epic_key and not is_subtask:
         labels_list.append("epic-task")  # Epic에 속한 태스크임을 표시
         
-        # Epic Link 필드 사용 (customfield_10014가 일반적인 Epic Link 필드 ID)
-        if "customfield_10014" in available_fields:
-            print(f"Epic Link 필드 사용하여 {epic_key}에 연결")
-            fields["customfield_10014"] = epic_key
-        # 또는 다른 Epic Link 필드 ID를 찾아서 사용 (프로젝트마다 다를 수 있음)
-        else:
-            # Epic Link 필드 ID 찾기
-            epic_link_field = next((field_id for field_id, field_info in available_fields.items() 
-                                  if field_info.get('name') == 'Epic Link'), None)
-            if epic_link_field:
-                print(f"Epic Link 필드({epic_link_field}) 사용하여 {epic_key}에 연결")
-                fields[epic_link_field] = epic_key
-            else:
-                print("Epic Link 필드 없음. Epic 연결 불가.")
+        fields["customfield_10014"] = epic_key
     
-    # 레이블이 있으면 추가
-    if labels_list:
         fields["labels"] = labels_list
     
-    # Priority가 사용 가능한 경우 추가
-    if "priority" in available_fields:
         fields["priority"] = {"name": str(priority)}
-    
-    # Story Points 필드 추가
-    if story_points and "customfield_10016" in available_fields:
+
         fields["customfield_10016"] = float(story_points)
     
-    # 시작 날짜 필드 추가
-    if start_date and "customfield_10015" in available_fields:
         fields["customfield_10015"] = start_date.strftime("%Y-%m-%d")
     
-    # 마감일 필드 추가
-    if due_date and "duedate" in available_fields:
         fields["duedate"] = due_date.strftime("%Y-%m-%d")
     
     # 최종 payload 생성

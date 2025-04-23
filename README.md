@@ -30,13 +30,30 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## Run the script
+```bash
+python src/main.py 
+```
+
 ## 프로젝트 구조 / Project Structure
 ```
 jira_API/
-├── README.md
-├── requirements.txt
-└── src/
-    └── main.py
+├── data/                          
+│   ├── jira_fields.json
+│   ├── issue_types.json
+│   ├── work_items.json
+│   └── all_jira_data.json
+├── src/
+│   ├── __init__.py
+│   ├── main.py
+│   └── utils/
+│       ├── __init__.py
+│       ├── auth_handler.py
+│       ├── connect_handler.py
+│       ├── get_handler.py
+│       └── json_handler.py
+├── .env
+└── requirements.txt
 ```
 
 ## 환경 변수 설정 / Environment Variables

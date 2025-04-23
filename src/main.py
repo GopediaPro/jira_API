@@ -1,33 +1,35 @@
-import os
-from dotenv import load_dotenv
-from jira import JIRA
+from utils.connect_handler import JiraConnectHandler
+from utils.get_handler import JiraGetHandler
 
-# Load environment variables
-load_dotenv()
+def test_connection():
+    """Test Jira connection"""
+    jira_connect = JiraConnectHandler()
+    connection_test = jira_connect.test_connection()
+    
+    print("\nConnection Test Results:")
+    for test_name, result in connection_test.items():
+        print(f"\n{test_name.upper()}:")
+        print(result)
 
-def connect_jira():
-    """
-    JIRA 연결 설정
-    Setup JIRA connection
-    """
-    email = os.getenv('EMAIL')
-    api_token = os.getenv('API_TOKEN')
-    domain = os.getenv('JIRA_INSTANCE')
+def fetch_jira_data():
+    """Fetch and save Jira data"""
+    getter = JiraGetHandler()
+    print("\nFetching Jira data...")
+    results = getter.fetch_all_data()
     
-    if not all([email, api_token, domain]):
-        raise ValueError("환경 변수가 올바르게 설정되지 않았습니다. / Environment variables are not properly set.")
-    
-    return JIRA(
-        server=f"https://{domain}",
-        basic_auth=(email, api_token)
-    )
+    print("\nResults saved to JSON files in the 'data' directory:")
+    for data_type, data in results.items():
+        if data:
+            print(f"✓ {data_type} saved successfully")
+        else:
+            print(f"✗ Failed to fetch {data_type}")
 
 def main():
-    try:
-        jira = connect_jira()
-        print("JIRA 연결 성공! / JIRA connection successful!")
-    except Exception as e:
-        print(f"JIRA 연결 실패 / JIRA connection failed: {str(e)}")
+    # Test connection first
+    test_connection()
+    
+    # If connection is successful, fetch data
+    fetch_jira_data()
 
 if __name__ == "__main__":
     main() 
