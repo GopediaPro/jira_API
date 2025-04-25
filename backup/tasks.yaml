@@ -1,0 +1,508 @@
+project: NEUN
+
+epics:
+  - summary: "1단계: 기초 설치 및 연결"
+    description: "핵심 시스템 설치 및 기본 연동 구현을 위한 초기 설정 작업"
+    priority: High
+    assignee: project_lead
+    labels: [phase-1, infrastructure, foundation]
+    components: ["DevOps", "Backend"]
+    duedate: "2025-07-31"
+    tasks:
+      - summary: "인프라 준비: 온프레미스 서버 구성"
+        description: "온프레미스 서버 하드웨어 설정 및 초기 네트워크 구성"
+        priority: High
+        assignee: devops_lead
+        labels: [phase-1, infrastructure, linux, networking]
+        components: ["DevOps"]
+        duedate: "2025-05-15"
+
+      - summary: "인프라 준비: Docker 설치 및 기본 네트워크 구성"
+        description: "Docker와 Docker Compose 설치 및 컨테이너 네트워크 구성"
+        priority: High
+        assignee: devops_lead
+        labels: [phase-1, infrastructure, docker, container, networking]
+        components: ["DevOps"]
+        duedate: "2025-05-22"
+        subtasks:
+          - summary: "Docker 설치 자동화 스크립트 작성"
+            description: "서버 환경에 Docker 및 필요 도구를 자동으로 설치하는 스크립트 개발"
+            priority: Medium
+            assignee: devops_engineer
+            labels: [phase-1, infrastructure, docker, shell-script]
+            components: ["DevOps"]
+            
+          - summary: "Docker Compose 네트워크 구성"
+            description: "서비스 간 통신을 위한 Docker 네트워크 설정"
+            priority: Medium
+            assignee: devops_engineer
+            labels: [phase-1, infrastructure, docker-compose, networking]
+            components: ["DevOps"]
+
+      - summary: "인프라 준비: PostgreSQL 데이터베이스 설정"
+        description: "공유 PostgreSQL 데이터베이스 서버 설정 및 초기 스키마 구성"
+        priority: High
+        assignee: db_admin
+        labels: [phase-1, database, postgresql, docker]
+        components: ["Backend", "DevOps"]
+        duedate: "2025-05-29"
+        subtasks:
+          - summary: "PostgreSQL 컨테이너 구성"
+            description: "데이터 지속성 및 백업이 설정된 PostgreSQL Docker 컨테이너 설정"
+            priority: Medium
+            assignee: db_admin
+            labels: [phase-1, database, postgresql, docker]
+            components: ["DevOps"]
+            
+          - summary: "초기 데이터베이스 스키마 설계"
+            description: "공유 테이블 및 기본 스키마 설계"
+            priority: Medium
+            assignee: db_engineer
+            labels: [phase-1, database, postgresql, schema-design]
+            components: ["Backend"]
+
+      - summary: "핵심 서비스 설치: ERPNext 구성"
+        description: "ERPNext Docker 컨테이너 설정 및 초기 구성"
+        priority: High
+        assignee: backend_lead
+        labels: [phase-1, erp, docker, webservice]
+        components: ["Backend", "DevOps"]
+        duedate: "2025-06-05"
+        subtasks:
+          - summary: "ERPNext Docker 설정"
+            description: "ERPNext 및 의존성 컨테이너 구성"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-1, erp, docker, webservice]
+            components: ["DevOps", "Backend"]
+            
+          - summary: "ERPNext 초기 설정 및 모듈 구성"
+            description: "기본 회사 정보, 사용자 역할 및 핵심 모듈 설정"
+            priority: Medium
+            assignee: erp_specialist
+            labels: [phase-1, erp, configuration]
+            components: ["Backend"]
+
+      - summary: "핵심 서비스 설치: Mattermost 구성"
+        description: "Mattermost 설치 및 기본 채널 구성"
+        priority: High
+        assignee: backend_lead
+        labels: [phase-1, communication, docker, webservice]
+        components: ["Backend", "DevOps"]
+        duedate: "2025-06-12"
+        subtasks:
+          - summary: "Mattermost Docker 설정"
+            description: "Mattermost 컨테이너 및 데이터베이스 연결 구성"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-1, communication, docker, webservice]
+            components: ["DevOps", "Backend"]
+            
+          - summary: "Mattermost 초기 채널 및 팀 구성"
+            description: "기본 팀 구조 및 통합 채널 설정"
+            priority: Medium
+            assignee: comm_specialist
+            labels: [phase-1, communication, configuration]
+            components: ["Backend"]
+
+      - summary: "핵심 서비스 설치: Keycloak SSO 구성"
+        description: "Keycloak 설치 및 SSO 기본 설정"
+        priority: High
+        assignee: security_lead
+        labels: [phase-1, security, authentication, docker, webservice]
+        components: ["Backend", "DevOps", "Security"]
+        duedate: "2025-06-19"
+        subtasks:
+          - summary: "Keycloak Docker 설정"
+            description: "Keycloak 컨테이너 및 데이터베이스 연결 구성"
+            priority: Medium
+            assignee: devops_engineer
+            labels: [phase-1, security, authentication, docker]
+            components: ["DevOps", "Security"]
+            
+          - summary: "Keycloak 기본 영역 및 클라이언트 설정"
+            description: "인증 영역, 사용자 속성 및 초기 클라이언트 구성"
+            priority: Medium
+            assignee: security_engineer
+            labels: [phase-1, security, authentication, configuration]
+            components: ["Security", "Backend"]
+
+      - summary: "핵심 서비스 설치: n8n 워크플로우 엔진 구성"
+        description: "n8n 설치 및 기본 워크플로우 환경 구성"
+        priority: High
+        assignee: backend_lead
+        labels: [phase-1, workflow, automation, docker, webservice]
+        components: ["Backend", "DevOps"]
+        duedate: "2025-06-26"
+        subtasks:
+          - summary: "n8n Docker 설정"
+            description: "n8n 컨테이너 및 데이터베이스 연결 구성"
+            priority: Medium
+            assignee: devops_engineer
+            labels: [phase-1, workflow, automation, docker]
+            components: ["DevOps"]
+            
+          - summary: "n8n 초기 노드 및 환경 변수 설정"
+            description: "기본 워크플로우 연결을 위한 환경 구성"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-1, workflow, automation, configuration]
+            components: ["Backend"]
+
+      - summary: "기본 웹 포털 개발: React 기반 프레임워크 구축"
+        description: "통합 웹 포털의 기본 프레임워크 개발"
+        priority: High
+        assignee: frontend_lead
+        labels: [phase-1, frontend, react, webportal]
+        components: ["Frontend"]
+        duedate: "2025-07-10"
+        subtasks:
+          - summary: "웹 포털 기본 구조 설계"
+            description: "컴포넌트 구조 및 라우팅 설계"
+            priority: Medium
+            assignee: frontend_architect
+            labels: [phase-1, frontend, react, architecture]
+            components: ["Frontend"]
+            
+          - summary: "기본 UI 컴포넌트 개발"
+            description: "공통 UI 컴포넌트 및 레이아웃 개발"
+            priority: Medium
+            assignee: frontend_engineer
+            labels: [phase-1, frontend, react, ui-components]
+            components: ["Frontend"]
+            
+          - summary: "Keycloak SSO 통합"
+            description: "웹 포털과 Keycloak 인증 통합"
+            priority: Medium
+            assignee: frontend_engineer
+            labels: [phase-1, frontend, react, authentication, keycloak]
+            components: ["Frontend", "Security"]
+
+      - summary: "초기 연동 구현: 사용자 동기화"
+        description: "Keycloak, ERPNext, Mattermost 간 사용자 동기화 구현"
+        priority: High
+        assignee: integration_lead
+        labels: [phase-1, integration, authentication, api]
+        components: ["Backend", "Security"]
+        duedate: "2025-07-24"
+        subtasks:
+          - summary: "Keycloak-ERPNext 사용자 동기화"
+            description: "Keycloak에서 ERPNext로 사용자 프로비저닝 구현"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-1, integration, authentication, api, erp]
+            components: ["Backend", "Security"]
+            
+          - summary: "Keycloak-Mattermost 사용자 동기화"
+            description: "Keycloak에서 Mattermost로 사용자 프로비저닝 구현"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-1, integration, authentication, api, communication]
+            components: ["Backend", "Security"]
+
+      - summary: "초기 연동 구현: 기본 워크플로우 자동화"
+        description: "n8n을 사용한 기본 자동화 워크플로우 구현"
+        priority: High
+        assignee: backend_lead
+        labels: [phase-1, workflow, automation, integration]
+        components: ["Backend"]
+        duedate: "2025-07-31"
+        subtasks:
+          - summary: "기본 알림 워크플로우 구현"
+            description: "이벤트 발생 시 Mattermost로 알림 전송 워크플로우 구현"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-1, workflow, automation, integration, communication]
+            components: ["Backend"]
+            
+          - summary: "사용자 온보딩 워크플로우 구현"
+            description: "신규 사용자 생성 시 필요한 프로비저닝 자동화"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-1, workflow, automation, integration]
+            components: ["Backend"]
+
+  - summary: "2단계: 기본 기능 확장"
+    description: "핵심 비즈니스 프로세스 구현 및 AI 지원 초기화"
+    priority: High
+    assignee: project_lead
+    labels: [phase-2, functionality, business-processes]
+    components: ["Backend", "Frontend"]
+    duedate: "2025-10-31"
+    tasks:
+      - summary: "ERPNext 비즈니스 프로세스: 핵심 모듈 구성"
+        description: "ERPNext 핵심 모듈 구성 및 기초 데이터 설정"
+        priority: High
+        assignee: erp_lead
+        labels: [phase-2, erp, configuration, business-process]
+        components: ["Backend"]
+        duedate: "2025-08-07"
+        subtasks:
+          - summary: "재무 모듈 설정"
+            description: "계정 차트, 회계 기간, 세금 설정 등 재무 모듈 기본 구성"
+            priority: Medium
+            assignee: finance_specialist
+            labels: [phase-2, erp, configuration, finance]
+            components: ["Backend"]
+            
+          - summary: "인사 모듈 설정"
+            description: "조직 구조, 직무, 급여 구조 등 인사 모듈 기본 구성"
+            priority: Medium
+            assignee: hr_specialist
+            labels: [phase-2, erp, configuration, hr]
+            components: ["Backend"]
+            
+          - summary: "재고 모듈 설정"
+            description: "창고, 품목 그룹, 재고 설정 등 재고 모듈 기본 구성"
+            priority: Medium
+            assignee: inventory_specialist
+            labels: [phase-2, erp, configuration, inventory]
+            components: ["Backend"]
+
+      - summary: "ERPNext 비즈니스 프로세스: 기본 결재 워크플로우 설정"
+        description: "ERPNext 내 주요 결재 워크플로우 설정"
+        priority: High
+        assignee: erp_lead
+        labels: [phase-2, erp, workflow, approval]
+        components: ["Backend"]
+        duedate: "2025-08-14"
+        subtasks:
+          - summary: "구매 결재 워크플로우 구현"
+            description: "구매 요청 및 구매 주문 결재 프로세스 구현"
+            priority: Medium
+            assignee: erp_engineer
+            labels: [phase-2, erp, workflow, approval, purchasing]
+            components: ["Backend"]
+            
+          - summary: "지출 결재 워크플로우 구현"
+            description: "경비 청구 및 지출 결재 프로세스 구현"
+            priority: Medium
+            assignee: erp_engineer
+            labels: [phase-2, erp, workflow, approval, expense]
+            components: ["Backend"]
+
+      - summary: "ERPNext 비즈니스 프로세스: API 연동 포인트 구성"
+        description: "외부 시스템과의 통합을 위한 ERPNext API 설정"
+        priority: High
+        assignee: backend_lead
+        labels: [phase-2, erp, api, integration]
+        components: ["Backend"]
+        duedate: "2025-08-21"
+        subtasks:
+          - summary: "REST API 엔드포인트 구성"
+            description: "주요 비즈니스 객체에 대한 API 엔드포인트 구성 및 문서화"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-2, erp, api, rest]
+            components: ["Backend"]
+            
+          - summary: "Webhook 이벤트 구성"
+            description: "주요 이벤트에 대한 Webhook 트리거 설정"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-2, erp, api, webhook]
+            components: ["Backend"]
+
+      - summary: "AI 보조 구현: Rasa 기본 모델 구축"
+        description: "Rasa NLU 기본 모델 개발 및 훈련"
+        priority: High
+        assignee: ai_lead
+        labels: [phase-2, ai, rasa, nlp]
+        components: ["AI", "Backend"]
+        duedate: "2025-09-04"
+        subtasks:
+          - summary: "Rasa Docker 설정"
+            description: "Rasa 서버 및 액션 서버 컨테이너 구성"
+            priority: Medium
+            assignee: devops_engineer
+            labels: [phase-2, ai, rasa, docker]
+            components: ["DevOps", "AI"]
+            
+          - summary: "기본 인텐트 및 엔티티 정의"
+            description: "핵심 업무 도메인에 대한 인텐트 및 엔티티 정의"
+            priority: Medium
+            assignee: ai_engineer
+            labels: [phase-2, ai, rasa, nlp, intent-design]
+            components: ["AI"]
+            
+          - summary: "초기 Rasa 모델 훈련"
+            description: "정의된 인텐트 및 엔티티로 기본 모델 훈련"
+            priority: Medium
+            assignee: ai_engineer
+            labels: [phase-2, ai, rasa, nlp, model-training]
+            components: ["AI"]
+
+      - summary: "AI 보조 구현: Gemini API 연동"
+        description: "Google Gemini API를 Rasa 시스템과 연동"
+        priority: High
+        assignee: ai_lead
+        labels: [phase-2, ai, gemini, api, integration]
+        components: ["AI", "Backend"]
+        duedate: "2025-09-11"
+        subtasks:
+          - summary: "Gemini API 통합 설정"
+            description: "API 키 및 환경 변수 구성"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-2, ai, gemini, api, configuration]
+            components: ["Backend", "AI"]
+            
+          - summary: "기본 프롬프트 템플릿 개발"
+            description: "주요 사용 사례에 대한 프롬프트 템플릿 개발"
+            priority: Medium
+            assignee: ai_engineer
+            labels: [phase-2, ai, gemini, prompt-engineering]
+            components: ["AI"]
+
+      - summary: "AI 보조 구현: Mattermost 봇 통합"
+        description: "Rasa 및 Gemini를 Mattermost 봇과 통합"
+        priority: High
+        assignee: integration_lead
+        labels: [phase-2, ai, communication, integration, bot]
+        components: ["AI", "Backend"]
+        duedate: "2025-09-18"
+        subtasks:
+          - summary: "Mattermost 봇 설정"
+            description: "Mattermost 봇 계정 및 권한 구성"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-2, communication, bot, configuration]
+            components: ["Backend"]
+            
+          - summary: "Rasa-Mattermost 통합 구현"
+            description: "Rasa와 Mattermost 간 웹훅 연동 구현"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-2, ai, communication, integration, webhook]
+            components: ["Backend", "AI"]
+
+      - summary: "AI 보조 구현: ChromaDB 기반 RAG 구현"
+        description: "기본 검색 증강 생성(RAG) 시스템 구현"
+        priority: High
+        assignee: ai_lead
+        labels: [phase-2, ai, rag, vector-db]
+        components: ["AI", "Backend"]
+        duedate: "2025-09-25"
+        subtasks:
+          - summary: "ChromaDB 설정"
+            description: "ChromaDB 컨테이너 설정 및 초기 구성"
+            priority: Medium
+            assignee: devops_engineer
+            labels: [phase-2, ai, rag, vector-db, docker]
+            components: ["DevOps", "AI"]
+            
+          - summary: "문서 임베딩 파이프라인 개발"
+            description: "문서를 벡터로 변환하여 ChromaDB에 저장하는 파이프라인 개발"
+            priority: Medium
+            assignee: ai_engineer
+            labels: [phase-2, ai, rag, vector-db, embedding]
+            components: ["AI", "Backend"]
+            
+          - summary: "RAG 쿼리 시스템 개발"
+            description: "사용자 쿼리에 기반한 검색 및 응답 생성 시스템 개발"
+            priority: Medium
+            assignee: ai_engineer
+            labels: [phase-2, ai, rag, query-processing]
+            components: ["AI", "Backend"]
+
+      - summary: "워크플로우 자동화 확장: 주요 업무 프로세스 자동화"
+        description: "핵심 비즈니스 프로세스를 n8n으로 자동화"
+        priority: High
+        assignee: backend_lead
+        labels: [phase-2, workflow, automation, business-process]
+        components: ["Backend"]
+        duedate: "2025-10-09"
+        subtasks:
+          - summary: "문서 처리 워크플로우 개발"
+            description: "주요 문서 라이프사이클 자동화 워크플로우 개발"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-2, workflow, automation, document-processing]
+            components: ["Backend"]
+            
+          - summary: "보고 워크플로우 개발"
+            description: "정기 보고서 생성 및 배포 워크플로우 개발"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-2, workflow, automation, reporting]
+            components: ["Backend"]
+
+      - summary: "워크플로우 자동화 확장: Mattermost 알림 연동 강화"
+        description: "사용자 친화적인 Mattermost 알림 시스템 개발"
+        priority: High
+        assignee: backend_lead
+        labels: [phase-2, workflow, communication, notification]
+        components: ["Backend"]
+        duedate: "2025-10-16"
+        subtasks:
+          - summary: "대화형 알림 개발"
+            description: "직접 응답이 가능한 대화형 Mattermost 알림 개발"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-2, workflow, communication, notification, interactive]
+            components: ["Backend"]
+            
+          - summary: "알림 구독 시스템 개발"
+            description: "사용자별 알림 구독 관리 시스템 개발"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-2, workflow, communication, notification, subscription]
+            components: ["Backend"]
+
+      - summary: "모니터링 및 대시보드: Grafana 초기 구성"
+        description: "기본 시스템 모니터링 및 비즈니스 대시보드 구현"
+        priority: High
+        assignee: devops_lead
+        labels: [phase-2, monitoring, dashboard, visualization]
+        components: ["DevOps", "Backend"]
+        duedate: "2025-10-23"
+        subtasks:
+          - summary: "Grafana 설정"
+            description: "Grafana 컨테이너 설정 및 데이터 소스 연결"
+            priority: Medium
+            assignee: devops_engineer
+            labels: [phase-2, monitoring, dashboard, docker]
+            components: ["DevOps"]
+            
+          - summary: "시스템 모니터링 대시보드 개발"
+            description: "서버 및 애플리케이션 상태 모니터링 대시보드 개발"
+            priority: Medium
+            assignee: devops_engineer
+            labels: [phase-2, monitoring, dashboard, system-metrics]
+            components: ["DevOps"]
+            
+          - summary: "비즈니스 지표 대시보드 개발"
+            description: "핵심 비즈니스 지표를 시각화하는 대시보드 개발"
+            priority: Medium
+            assignee: data_analyst
+            labels: [phase-2, monitoring, dashboard, business-metrics]
+            components: ["Backend", "Data"]
+
+      - summary: "지식 관리 기초: Obsidian 기반 지식 저장소 구성"
+        description: "팀 지식 관리를 위한 Obsidian 기반 시스템 구축"
+        priority: High
+        assignee: knowledge_lead
+        labels: [phase-2, knowledge, obsidian, documentation]
+        components: ["Knowledge", "Backend"]
+        duedate: "2025-10-31"
+        subtasks:
+          - summary: "지식 구조 및 템플릿 개발"
+            description: "문서 구조, 태그 시스템 및 문서 템플릿 개발"
+            priority: Medium
+            assignee: knowledge_engineer
+            labels: [phase-2, knowledge, obsidian, taxonomy]
+            components: ["Knowledge"]
+            
+          - summary: "Git 기반 동기화 시스템 구현"
+            description: "Obsidian 저장소의 Git 기반 동기화 시스템 구현"
+            priority: Medium
+            assignee: backend_engineer
+            labels: [phase-2, knowledge, obsidian, git, synchronization]
+            components: ["Backend", "Knowledge"]
+            
+          - summary: "ChromaDB 색인 연동"
+            description: "Obsidian 문서를 ChromaDB에 인덱싱하는 시스템 구현"
+            priority: Medium
+            assignee: ai_engineer
+            labels: [phase-2, knowledge, obsidian, rag, indexing]
+            components: ["AI", "Knowledge", "Backend"]
