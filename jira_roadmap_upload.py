@@ -291,7 +291,7 @@ def create_roadmap_tasks():
     has_epic_type = 'epic' in issue_type_names
     
     # Load tasks from JSON file
-    with open('test_tasks.json', 'r', encoding='utf-8') as f:
+    with open('tasks.json', 'r', encoding='utf-8') as f:
         tasks = json.load(f)
     
     # 스테이지(단계)별 그룹화
@@ -365,7 +365,6 @@ def create_roadmap_tasks():
                         story_points=task.get('story_points'),
                         start_date=datetime.strptime(task['start_date'], "%Y-%m-%d"),
                         due_date=datetime.strptime(task['due_date'], "%Y-%m-%d"),
-                        category=task.get('category'),
                         labels=task.get('labels', [])
                     )
                     
@@ -382,7 +381,6 @@ def create_roadmap_tasks():
                         story_points=task.get('story_points'),
                         start_date=datetime.strptime(task['start_date'], "%Y-%m-%d"),
                         due_date=datetime.strptime(task['due_date'], "%Y-%m-%d"),
-                        category=task.get('category'),
                         labels=task.get('labels', [])
                     )
                     

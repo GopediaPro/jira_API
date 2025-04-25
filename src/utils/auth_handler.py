@@ -1,5 +1,6 @@
 import os
 import base64
+import yaml
 from dotenv import load_dotenv
 
 class JiraAuthHandler:
@@ -31,3 +32,24 @@ class JiraAuthHandler:
         if missing_vars:
             raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
         return True
+        
+    def load_credentials_from_yaml(self, yaml_file):
+        """Load credentials from YAML file if not set in environment"""
+        try:
+            with open(yaml_file, 'r', encoding='utf-8') as file:
+                config = yaml.safe_load(file)
+                
+            # Only set values that aren't already set
+            if not self.email and 'email' in config:
+                self.email = config['email']
+                
+            if not self.api_token and 'api_token' in config:
+                self.api_token = config['api_token']
+                
+            if not self.jira_instance and 'jira_instance' in config:
+                self.jira_instance = config['jira_instance']
+                
+            return True
+        except Exception as e:
+            print(f"Error loading credentials from YAML: {str(e)}")
+            return False
