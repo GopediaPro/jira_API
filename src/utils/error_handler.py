@@ -27,7 +27,7 @@ class JiraFileError(JiraError):
     pass
 
 class ErrorHandler:
-    def __init__(self, log_file: str = "jira_errors.log"):
+    def __init__(self, log_file: str = "logs/jira_errors.log"):
         """Initialize error handler with logging configuration"""
         self.logger = logging.getLogger("jira_api")
         self.logger.setLevel(logging.DEBUG)

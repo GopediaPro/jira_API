@@ -6,3 +6,6 @@ __pycache__/
 */__pycache__
 
 data/
+
+jira_errors.log
+logs/

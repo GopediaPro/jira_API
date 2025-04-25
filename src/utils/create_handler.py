@@ -34,7 +34,8 @@ class JiraCreateHandler:
         # Dictionary to store created epics/tasks for reference
         self.created_issues = {
             "epics": {},  # Mapping epic summary to epic key
-            "tasks": {}   # Mapping task summary to task key
+            "tasks": {},   # Mapping task summary to task key
+            "subtasks": {} # Mapping subtask summary to subtask key
         }
 
     def load_yaml_file(self, filepath: str) -> Dict[str, Any]:
@@ -255,7 +256,9 @@ class JiraCreateHandler:
             },
             "issuetype": {"id": issue_type_id}
         }
-        
+        # For tasks, set parent
+        if hierarchy_level == 0 and parent_key:
+            fields["parent"] = {"key": parent_key}
         # For subtasks, set parent
         if hierarchy_level == -1 and parent_key:
             fields["parent"] = {"key": parent_key}
@@ -275,6 +278,7 @@ class JiraCreateHandler:
                 fields["duedate"] = value
             elif key.startswith("customfield_"):
                 fields[key] = value
+            
                 
         # Create payload and make request
         payload = {"fields": fields}
@@ -284,12 +288,15 @@ class JiraCreateHandler:
             data = response.json()
             task_id = data.get("id")
             task_key = data.get("key")
+            self.logger.info(f"Task created successfully: {task_key} (ID: {task_id})")
             
             # Store reference based on hierarchy
             if hierarchy_level == 1:
                 self.created_issues["epics"][summary] = task_key
-            else:
+            elif hierarchy_level == 0:
                 self.created_issues["tasks"][summary] = task_key
+            elif hierarchy_level == -1:
+                self.created_issues["subtasks"][summary] = task_key
                 
             return task_id, task_key
         else:
@@ -381,7 +388,8 @@ class JiraCreateHandler:
                 "project": self.project_key,
                 "created_issues": {
                     "epics": self.created_issues["epics"],
-                    "tasks": self.created_issues["tasks"]
+                    "tasks": self.created_issues["tasks"],
+                    "subtasks": self.created_issues["subtasks"]
                 }
             }
         except Exception as e:
@@ -405,5 +413,6 @@ if __name__ == "__main__":
     if result['success']:
         print(f"Created Epics: {len(result['created_issues']['epics'])}")
         print(f"Created Tasks: {len(result['created_issues']['tasks'])}")
+        print(f"Created Subtasks: {len(result['created_issues']['subtasks'])}")
     else:
         print(f"Error: {result.get('error', 'Unknown error')}")
