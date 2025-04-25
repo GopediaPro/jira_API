@@ -278,6 +278,8 @@ class JiraCreateHandler:
                 fields["duedate"] = value
             elif key.startswith("customfield_"):
                 fields[key] = value
+            elif key == "components":
+                fields["customfield_10040"] = value if isinstance(value, list) else [value]
             
                 
         # Create payload and make request
