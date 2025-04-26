@@ -1,5 +1,5 @@
 requests==2.31.0
 jira==3.5.1
 python-dotenv==1.0.0
-atlassian-python-api==4.0.3
 pyyaml==6.0.1
+pandas==2.2.3

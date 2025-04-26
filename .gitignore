@@ -9,3 +9,6 @@ data/
 
 jira_errors.log
 logs/
+
+.DS_Store
+*/.DS_Store

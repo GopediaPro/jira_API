@@ -4,10 +4,11 @@ import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 import logging
+import pandas as pd
 
 from .auth_handler import JiraAuthHandler
 from .connect_handler import JiraConnectHandler
-from .error_handler import error_handler, JiraError, JiraDataError
+from .error_handler import error_handler, JiraError, JiraDataError, JiraAPIError
 
 
 class JiraCreateHandler:
@@ -220,8 +221,117 @@ class JiraCreateHandler:
             self.logger.error(f"Response: {response.text}")
             return None, None
             
+    def _process_issue_response(self, response: Any, summary: str, hierarchy_level: int, is_cleaned: bool = False) -> Tuple[Optional[str], Optional[str]]:
+        """Process the issue creation response and store the results
+        
+        Args:
+            response: Response from Jira API
+            summary: Issue summary
+            hierarchy_level: Hierarchy level of the issue
+            is_cleaned: Whether this was created with cleaned fields
+            
+        Returns:
+            Tuple of (issue_id, issue_key) or (None, None) if processing fails
+        """
+        if response.status_code == 201:
+            data = response.json()
+            issue_id = data.get("id")
+            issue_key = data.get("key")
+            
+            status_msg = "with cleaned fields" if is_cleaned else ""
+            self.logger.info(f"Task created successfully {status_msg}: {issue_key} (ID: {issue_id})")
+            
+            # Store reference based on hierarchy
+            if hierarchy_level == 1:
+                self.created_issues["epics"][summary] = issue_key
+            elif hierarchy_level == 0:
+                self.created_issues["tasks"][summary] = issue_key
+            elif hierarchy_level == -1:
+                self.created_issues["subtasks"][summary] = issue_key
+                
+            return issue_id, issue_key
+            
+        return None, None
+
+    def _prepare_issue_fields(self, summary: str, description: str, issue_type_id: str, 
+                            task_data: Dict[str, Any], parent_key: Optional[str] = None, 
+                            hierarchy_level: int = 0) -> Dict[str, Any]:
+        """Prepare fields for issue creation
+        Args:
+            summary: Issue summary
+            description: Issue description
+            issue_type_id: Issue type ID
+            task_data: Original task data
+            parent_key: Optional parent issue key
+            hierarchy_level: Hierarchy level
+        Returns:
+            Dictionary of prepared fields
+        """
+        fields = {
+            "project": {"key": self.project_key},
+            "summary": summary,
+            "description": {
+                "type": "doc",
+                "version": 1,
+                "content": [{"type": "paragraph", "content": [{"text": description, "type": "text"}]}]
+            },
+            "issuetype": {"id": issue_type_id}
+        }
+        
+        # Set parent for tasks and subtasks
+        if parent_key and hierarchy_level <= 0:
+            fields["parent"] = {"key": parent_key}
+            
+        # Process standard fields
+        for key, value in task_data.items():
+            if key in ["summary", "description", "project", "issuetype", "subtasks"]:
+                continue
+                
+            if key == "priority":
+                fields["priority"] = {"name": value}
+            elif key == "labels":
+                fields["labels"] = value if isinstance(value, list) else [value]
+            elif key == "assignee":
+                fields["assignee"] = {"accountId": value} if '@' in value else {"name": value}
+            elif key == "duedate":
+                fields["duedate"] = value
+            elif key.startswith("customfield_"):
+                fields[key] = value
+            elif key == "components":
+                fields["customfield_10040"] = value if isinstance(value, list) else [value]
+            
+        return fields
+
+    def _retry_with_cleaned_fields(self, fields: Dict[str, Any], summary: str, hierarchy_level: int) -> Tuple[Optional[str], Optional[str]]:
+        """Retry issue creation with cleaned fields after initial failure
+        Args:
+            fields: Original fields that failed
+            summary: Issue summary
+            hierarchy_level: Hierarchy level of the issue
+        Returns:
+            Tuple of (issue_id, issue_key) or (None, None) if retry fails
+        """
+        try:
+            # Validate and clean fields
+            cleaned_fields = self.validate_and_clean_fields(fields)
+            payload = {"fields": cleaned_fields}
+            
+            # Retry with cleaned fields
+            response = self.connect_handler._make_request("POST", "issue", json=payload)
+            if response.status_code != 201:
+                self.logger.error(f"Failed to create issue with cleaned fields: {response.status_code}")
+                self.logger.error(f"Response: {response.text}")
+                return None, None
+            else:
+                return self._process_issue_response(response, summary, hierarchy_level, is_cleaned=True)
+            
+        except Exception as retry_error:
+            self.logger.error(f"Error during retry attempt: {str(retry_error)}")
+            return None, None
+
     @error_handler
-    def create_hierarchical_task(self, task_data: Dict[str, Any], parent_key: Optional[str] = None, hierarchy_level: int = 0) -> Tuple[Optional[str], Optional[str]]:
+    def create_hierarchical_task(self, task_data: Dict[str, Any], parent_key: Optional[str] = None, 
+                               hierarchy_level: int = 0) -> Tuple[Optional[str], Optional[str]]:
         """Create a task with proper hierarchy level
         
         Args:
@@ -245,66 +355,22 @@ class JiraCreateHandler:
             self.logger.error(f"Could not find issue type for hierarchy level {hierarchy_level}")
             return None, None
             
-        # Prepare fields
-        fields = {
-            "project": {"key": self.project_key},
-            "summary": summary,
-            "description": {
-                "type": "doc",
-                "version": 1,
-                "content": [{"type": "paragraph", "content": [{"text": description, "type": "text"}]}]
-            },
-            "issuetype": {"id": issue_type_id}
-        }
-        # For tasks, set parent
-        if hierarchy_level == 0 and parent_key:
-            fields["parent"] = {"key": parent_key}
-        # For subtasks, set parent
-        if hierarchy_level == -1 and parent_key:
-            fields["parent"] = {"key": parent_key}
-            
-        # Process standard fields
-        for key, value in task_data.items():
-            if key in ["summary", "description", "project", "issuetype", "subtasks"]:
-                continue
-                
-            if key == "priority":
-                fields["priority"] = {"name": value}
-            elif key == "labels":
-                fields["labels"] = value if isinstance(value, list) else [value]
-            elif key == "assignee":
-                fields["assignee"] = {"accountId": value} if '@' in value else {"name": value}
-            elif key == "duedate":
-                fields["duedate"] = value
-            elif key.startswith("customfield_"):
-                fields[key] = value
-            elif key == "components":
-                fields["customfield_10040"] = value if isinstance(value, list) else [value]
-            
-                
-        # Create payload and make request
+        # Prepare initial fields
+        fields = self._prepare_issue_fields(summary, description, issue_type_id, task_data, parent_key, hierarchy_level)
         payload = {"fields": fields}
-        response = self.connect_handler._make_request("POST", "issue", json=payload)
         
-        if response.status_code == 201:
-            data = response.json()
-            task_id = data.get("id")
-            task_key = data.get("key")
-            self.logger.info(f"Task created successfully: {task_key} (ID: {task_id})")
-            
-            # Store reference based on hierarchy
-            if hierarchy_level == 1:
-                self.created_issues["epics"][summary] = task_key
-            elif hierarchy_level == 0:
-                self.created_issues["tasks"][summary] = task_key
-            elif hierarchy_level == -1:
-                self.created_issues["subtasks"][summary] = task_key
+        try:
+            # First attempt with original fields
+            response = self.connect_handler._make_request("POST", "issue", json=payload)
+            result = self._process_issue_response(response, summary, hierarchy_level)
+            if result[0]:
+                return result
                 
-            return task_id, task_key
-        else:
-            self.logger.error(f"Failed to create task: {response.status_code}")
-            self.logger.error(f"Response: {response.text}")
-            return None, None
+        except JiraAPIError as e:
+            self.logger.warning(f"Initial creation attempt failed: {str(e)}")
+            return self._retry_with_cleaned_fields(fields, summary, hierarchy_level)
+            
+        return None, None
 
     @error_handler
     def process_yaml_file(self, yaml_file: str) -> None:
@@ -402,6 +468,77 @@ class JiraCreateHandler:
                 "project": self.project_key,
                 "created_issues": self.created_issues
             }
+
+    def validate_and_clean_fields(self, fields: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Validate fields against field_map.json and remove invalid fields
+        Args:
+            fields (Dict[str, Any]): Fields to validate
+        Returns:
+            Dict[str, Any]: Cleaned fields dictionary
+        """
+        try:
+            # Load field_map from JSON
+            field_map_df = pd.DataFrame.from_dict(self.json_handler.load_json("field_map.json"), orient='index')
+            
+            # Create DataFrame from input fields
+            fields_df = pd.DataFrame(list(fields.keys()), columns=['field_name'])
+            
+            # Get valid fields by comparing with field_map
+            valid_fields = fields_df[fields_df['field_name'].isin(field_map_df.index)]
+            
+            # Create cleaned fields dictionary
+            cleaned_fields = {field: fields[field] for field in valid_fields['field_name']}
+            
+            # Log removed fields
+            removed_fields = set(fields.keys()) - set(cleaned_fields.keys())
+            if removed_fields:
+                print(f"Warning: Removed invalid fields: {removed_fields}")
+            
+            return cleaned_fields
+            
+        except Exception as e:
+            print(f"Error during field validation: {str(e)}")
+            # Return original fields if validation fails
+            return fields
+
+    @error_handler
+    def create_issue(self, fields: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Create a new issue in Jira"""
+        try:
+            # First attempt with original fields
+            payload = {"fields": fields}
+            response = self.connect_handler._make_request("POST", "issue", json=payload)
+            
+            if response.status_code == 201:
+                return response.json()
+                
+        except JiraAPIError as e:
+            print(f"Initial creation attempt failed: {str(e)}")
+            
+            try:
+                # Validate and clean fields
+                cleaned_fields = self.validate_and_clean_fields(fields)
+                
+                # Retry with cleaned fields
+                payload = {"fields": cleaned_fields}
+                response = self.connect_handler._make_request("POST", "issue", json=payload)
+                
+                if response.status_code == 201:
+                    print("Issue created successfully with cleaned fields")
+                    return response.json()
+                else:
+                    raise JiraAPIError(
+                        f"Failed to create issue even with cleaned fields: {response.status_code}",
+                        "API_ERROR",
+                        {"status_code": response.status_code, "response": response.text}
+                    )
+                    
+            except Exception as retry_error:
+                print(f"Error during retry attempt: {str(retry_error)}")
+                raise
+                
+        return None
 
 if __name__ == "__main__":
     # Example usage
