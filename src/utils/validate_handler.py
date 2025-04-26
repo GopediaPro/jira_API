@@ -1,10 +1,13 @@
 from typing import Dict, List, Optional, Any
 from .error_handler import error_handler, JiraError
 from .connect_handler import JiraConnectHandler
+from .json_handler import JsonHandler
+import pandas as pd
 
 class JiraValidateHandler:
     def __init__(self, connect_handler: JiraConnectHandler):
         self.connect = connect_handler
+        self.json_handler = JsonHandler()
 
     @error_handler
     def validate_project(self, project_key: str) -> bool:
@@ -94,3 +97,37 @@ class JiraValidateHandler:
         except Exception as e:
             print(f"Error validating field {field_name}: {str(e)}")
             return False
+
+    def validate_and_clean_fields(self, fields: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate fields against field_map.json and remove invalid fields
+        
+        Args:
+            fields (Dict[str, Any]): Fields to validate
+            
+        Returns:
+            Dict[str, Any]: Cleaned fields dictionary
+        """
+        try:
+            # Load field_map from JSON
+            field_map_df = pd.DataFrame.from_dict(self.json_handler.load_json("field_map.json"), orient='index')
+            
+            # Create DataFrame from input fields
+            fields_df = pd.DataFrame(list(fields.keys()), columns=['field_name'])
+            
+            # Get valid fields by comparing with field_map
+            valid_fields = fields_df[fields_df['field_name'].isin(field_map_df.index)]
+            
+            # Create cleaned fields dictionary
+            cleaned_fields = {field: fields[field] for field in valid_fields['field_name']}
+            
+            # Log removed fields
+            removed_fields = set(fields.keys()) - set(cleaned_fields.keys())
+            if removed_fields:
+                print(f"Warning: Removed invalid fields: {removed_fields}")
+            
+            return cleaned_fields
+            
+        except Exception as e:
+            print(f"Error during field validation: {str(e)}")
+            # Return original fields if validation fails
+            return fields

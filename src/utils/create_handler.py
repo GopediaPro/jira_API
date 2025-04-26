@@ -9,6 +9,8 @@ import pandas as pd
 from .auth_handler import JiraAuthHandler
 from .connect_handler import JiraConnectHandler
 from .error_handler import error_handler, JiraError, JiraDataError, JiraAPIError
+from .get_handler import JiraGetHandler
+from .validate_handler import JiraValidateHandler
 
 
 class JiraCreateHandler:
@@ -18,6 +20,8 @@ class JiraCreateHandler:
         """Initialize the handler with authentication and connection handlers"""
         self.auth_handler = JiraAuthHandler()
         self.connect_handler = JiraConnectHandler()
+        self.get_handler = JiraGetHandler()
+        self.validate_handler = JiraValidateHandler(self.connect_handler)
         
         # Setup logging
         logging.basicConfig(level=logging.INFO)
@@ -28,9 +32,6 @@ class JiraCreateHandler:
         
         # Project key from environment or will be loaded from YAML
         self.project_key = os.getenv("PROJECT_KEY")
-        
-        # Cached issue types for the project
-        self._issue_types = None
         
         # Dictionary to store created epics/tasks for reference
         self.created_issues = {
@@ -90,15 +91,12 @@ class JiraCreateHandler:
             
     def get_issue_types(self) -> List[Dict[str, Any]]:
         """Get available issue types for the current project"""
-        if self._issue_types is None:
-            project_data = self.connect_handler.get_project(self.project_key)
-            if project_data and "issueTypes" in project_data:
-                self._issue_types = project_data["issueTypes"]
-            else:
-                self._issue_types = []
-                self.logger.warning(f"Could not retrieve issue types for project {self.project_key}")
-        
-        return self._issue_types
+        project_data = self.connect_handler.get_project(self.project_key)
+        if project_data and "issueTypes" in project_data:
+            return project_data["issueTypes"]
+        else:
+            self.logger.warning(f"Could not retrieve issue types for project {self.project_key}")
+            return []
     
     def get_issue_type_id(self, name: str) -> Optional[str]:
         """Get the ID for a given issue type name"""
@@ -313,7 +311,7 @@ class JiraCreateHandler:
         """
         try:
             # Validate and clean fields
-            cleaned_fields = self.validate_and_clean_fields(fields)
+            cleaned_fields = self.validate_handler.validate_and_clean_fields(fields)
             payload = {"fields": cleaned_fields}
             
             # Retry with cleaned fields
@@ -468,77 +466,6 @@ class JiraCreateHandler:
                 "project": self.project_key,
                 "created_issues": self.created_issues
             }
-
-    def validate_and_clean_fields(self, fields: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Validate fields against field_map.json and remove invalid fields
-        Args:
-            fields (Dict[str, Any]): Fields to validate
-        Returns:
-            Dict[str, Any]: Cleaned fields dictionary
-        """
-        try:
-            # Load field_map from JSON
-            field_map_df = pd.DataFrame.from_dict(self.json_handler.load_json("field_map.json"), orient='index')
-            
-            # Create DataFrame from input fields
-            fields_df = pd.DataFrame(list(fields.keys()), columns=['field_name'])
-            
-            # Get valid fields by comparing with field_map
-            valid_fields = fields_df[fields_df['field_name'].isin(field_map_df.index)]
-            
-            # Create cleaned fields dictionary
-            cleaned_fields = {field: fields[field] for field in valid_fields['field_name']}
-            
-            # Log removed fields
-            removed_fields = set(fields.keys()) - set(cleaned_fields.keys())
-            if removed_fields:
-                print(f"Warning: Removed invalid fields: {removed_fields}")
-            
-            return cleaned_fields
-            
-        except Exception as e:
-            print(f"Error during field validation: {str(e)}")
-            # Return original fields if validation fails
-            return fields
-
-    @error_handler
-    def create_issue(self, fields: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Create a new issue in Jira"""
-        try:
-            # First attempt with original fields
-            payload = {"fields": fields}
-            response = self.connect_handler._make_request("POST", "issue", json=payload)
-            
-            if response.status_code == 201:
-                return response.json()
-                
-        except JiraAPIError as e:
-            print(f"Initial creation attempt failed: {str(e)}")
-            
-            try:
-                # Validate and clean fields
-                cleaned_fields = self.validate_and_clean_fields(fields)
-                
-                # Retry with cleaned fields
-                payload = {"fields": cleaned_fields}
-                response = self.connect_handler._make_request("POST", "issue", json=payload)
-                
-                if response.status_code == 201:
-                    print("Issue created successfully with cleaned fields")
-                    return response.json()
-                else:
-                    raise JiraAPIError(
-                        f"Failed to create issue even with cleaned fields: {response.status_code}",
-                        "API_ERROR",
-                        {"status_code": response.status_code, "response": response.text}
-                    )
-                    
-            except Exception as retry_error:
-                print(f"Error during retry attempt: {str(retry_error)}")
-                raise
-                
-        return None
 
 if __name__ == "__main__":
     # Example usage

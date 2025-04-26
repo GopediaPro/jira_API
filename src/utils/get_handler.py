@@ -143,6 +143,21 @@ class JiraGetHandler:
         
         return self._cache['issue_type_map'][issue_type_name]['id']
 
+    def get_issue_type_by_hierarchy(self, hierarchy_level: int) -> Optional[str]:
+        """Get issue type ID based on hierarchy level
+        
+        Args:
+            hierarchy_level: The hierarchy level (1 for Epic, 0 for Task, -1 for Sub-task)
+            
+        Returns:
+            Issue type ID or None if not found
+        """
+        issue_types = self.get_issue_types()
+        for issue_type in issue_types:
+            if issue_type.get("hierarchyLevel") == hierarchy_level:
+                return issue_type.get("id")
+        return None
+
     @error_handler
     def get_components(self) -> List[Dict]:
         """Get all project components"""
