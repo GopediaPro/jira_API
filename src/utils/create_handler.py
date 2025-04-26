@@ -56,7 +56,7 @@ class JiraCreateHandler:
                 self.project_key = data["project"]
                 
             # Validate the structure
-            self._validate_yaml_structure(data)
+            self.validate_handler._validate_yaml_structure(data)
                 
             return data
         except yaml.YAMLError as e:
@@ -66,158 +66,6 @@ class JiraCreateHandler:
         except Exception as e:
             self.logger.error(f"Error loading YAML file: {str(e)}")
             raise
-    
-    def _validate_yaml_structure(self, data: Dict[str, Any]) -> None:
-        """Validate the YAML structure has required fields"""
-        required_keys = ["project"]
-        missing_keys = [key for key in required_keys if key not in data]
-        
-        if missing_keys:
-            raise JiraDataError(
-                f"Missing required keys in YAML: {', '.join(missing_keys)}",
-                "INVALID_YAML_STRUCTURE",
-                {"missing_keys": missing_keys},
-                {"file": "yaml_validation"}
-            )
-        
-        # Validate at least one of epics or tasks exists
-        if "epics" not in data and "tasks" not in data:
-            raise JiraDataError(
-                "YAML must contain either 'epics' or 'tasks' key",
-                "INVALID_YAML_STRUCTURE",
-                {"error": "No epics or tasks found"},
-                {"file": "yaml_validation"}
-            )
-            
-    def get_issue_types(self) -> List[Dict[str, Any]]:
-        """Get available issue types for the current project"""
-        project_data = self.connect_handler.get_project(self.project_key)
-        if project_data and "issueTypes" in project_data:
-            return project_data["issueTypes"]
-        else:
-            self.logger.warning(f"Could not retrieve issue types for project {self.project_key}")
-            return []
-    
-    def get_issue_type_id(self, name: str) -> Optional[str]:
-        """Get the ID for a given issue type name"""
-        issue_types = self.get_issue_types()
-        for issue_type in issue_types:
-            if issue_type.get("name", "").lower() == name.lower():
-                return issue_type.get("id")
-        
-        # Log available issue types if the requested one wasn't found
-        available_types = [it.get("name") for it in issue_types]
-        self.logger.warning(f"Issue type '{name}' not found. Available types: {available_types}")
-        return None
-    
-    def has_epic_type(self) -> bool:
-        """Check if the project has the Epic issue type"""
-        return self.get_issue_type_id("epic") is not None
-    
-    def get_issue_type_by_hierarchy(self, hierarchy_level: int) -> Optional[str]:
-        """Get issue type ID based on hierarchy level
-        
-        Args:
-            hierarchy_level: The hierarchy level (1 for Epic, 0 for Task, -1 for Sub-task)
-            
-        Returns:
-            Issue type ID or None if not found
-        """
-        issue_types = self.get_issue_types()
-        for issue_type in issue_types:
-            if issue_type.get("hierarchyLevel") == hierarchy_level:
-                return issue_type.get("id")
-        return None
-
-    @error_handler
-    def create_epic(self, epic_data: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
-        """Create an epic in Jira
-        
-        Args:
-            epic_data: Dictionary containing epic details
-            
-        Returns:
-            Tuple of (epic_id, epic_key) or (None, None) if creation fails
-        """
-        summary = epic_data.get("summary")
-        description = epic_data.get("description", "")
-        
-        if not summary:
-            self.logger.error("Epic must have a summary")
-            return None, None
-            
-        # Check if this project supports real Epics
-        is_real_epic = self.has_epic_type()
-        
-        # Get appropriate issue type ID
-        if is_real_epic:
-            issue_type_id = self.get_issue_type_id("epic")
-            self.logger.info(f"Creating real Epic with type ID: {issue_type_id}")
-        else:
-            issue_type_id = self.get_issue_type_id("task")
-            self.logger.info(f"Creating Task as Epic substitute with type ID: {issue_type_id}")
-        
-        # Prepare fields
-        fields = {
-            "project": {"key": self.project_key},
-            "summary": summary,
-            "description": {
-                "type": "doc",
-                "version": 1,
-                "content": [{"type": "paragraph", "content": [{"text": description, "type": "text"}]}]
-            },
-            "issuetype": {"id": issue_type_id}
-        }
-        
-        # Add custom fields from the epic data
-        for key, value in epic_data.items():
-            # Skip standard fields already handled
-            if key in ["summary", "description", "project", "issuetype"]:
-                continue
-                
-            # Handle different field types
-            if key == "priority":
-                fields["priority"] = {"name": value}
-            elif key == "labels":
-                fields["labels"] = value if isinstance(value, list) else [value]
-            elif key == "assignee":
-                fields["assignee"] = {"name": value}
-            elif key == "duedate":
-                fields["duedate"] = value
-            elif key.startswith("customfield_"):
-                # Direct mapping for customfields
-                fields[key] = value
-            
-        # For tasks used as epics, add labels
-        if not is_real_epic:
-            if "labels" not in fields:
-                fields["labels"] = []
-            fields["labels"].append("epic")
-            
-        # Create payload
-        payload = {"fields": fields}
-        
-        # Make request
-        auth_header = self.auth_handler.get_auth_header()
-        jira_instance = self.auth_handler.get_jira_instance()
-        url = f"{jira_instance}/rest/api/3/issue"
-        
-        response = self.connect_handler._make_request("POST", "issue", json=payload)
-        
-        if response.status_code == 201:
-            data = response.json()
-            epic_id = data.get("id")
-            epic_key = data.get("key")
-            self.logger.info(f"Epic created successfully: {epic_key} (ID: {epic_id})")
-            
-            # Store the epic for later reference
-            self.created_issues["epics"][summary] = epic_key
-            
-            return epic_id, epic_key
-        else:
-            self.logger.error(f"Failed to create epic: {response.status_code}")
-            self.logger.error(f"Response: {response.text}")
-            return None, None
             
     def _process_issue_response(self, response: Any, summary: str, hierarchy_level: int, is_cleaned: bool = False) -> Tuple[Optional[str], Optional[str]]:
         """Process the issue creation response and store the results
@@ -348,7 +196,7 @@ class JiraCreateHandler:
             return None, None
             
         # Get issue type ID based on hierarchy level
-        issue_type_id = self.get_issue_type_by_hierarchy(hierarchy_level)
+        issue_type_id = self.get_handler.get_issue_type_by_hierarchy(hierarchy_level)
         if not issue_type_id:
             self.logger.error(f"Could not find issue type for hierarchy level {hierarchy_level}")
             return None, None

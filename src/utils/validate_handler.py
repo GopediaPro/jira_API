@@ -1,5 +1,5 @@
 from typing import Dict, List, Optional, Any
-from .error_handler import error_handler, JiraError
+from .error_handler import error_handler, JiraError, JiraDataError
 from .connect_handler import JiraConnectHandler
 from .json_handler import JsonHandler
 import pandas as pd
@@ -97,6 +97,28 @@ class JiraValidateHandler:
         except Exception as e:
             print(f"Error validating field {field_name}: {str(e)}")
             return False
+        
+    def _validate_yaml_structure(self, data: Dict[str, Any]) -> None:
+        """Validate the YAML structure has required fields"""
+        required_keys = ["project"]
+        missing_keys = [key for key in required_keys if key not in data]
+        
+        if missing_keys:
+            raise JiraDataError(
+                f"Missing required keys in YAML: {', '.join(missing_keys)}",
+                "INVALID_YAML_STRUCTURE",
+                {"missing_keys": missing_keys},
+                {"file": "yaml_validation"}
+            )
+        
+        # Validate at least one of epics or tasks exists
+        if "epics" not in data and "tasks" not in data:
+            raise JiraDataError(
+                "YAML must contain either 'epics' or 'tasks' key",
+                "INVALID_YAML_STRUCTURE",
+                {"error": "No epics or tasks found"},
+                {"file": "yaml_validation"}
+            )
 
     def validate_and_clean_fields(self, fields: Dict[str, Any]) -> Dict[str, Any]:
         """Validate fields against field_map.json and remove invalid fields

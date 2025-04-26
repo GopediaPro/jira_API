@@ -6,7 +6,7 @@ import os
 
 class JiraGetHandler:
     def __init__(self):
-        self.jira = JiraConnectHandler()
+        self.connect_handler = JiraConnectHandler()
         self.json_handler = JsonHandler()
         self.project_key = os.getenv("PROJECT_KEY", "NEUN")
         
@@ -30,11 +30,47 @@ class JiraGetHandler:
             for key in self._cache:
                 self._cache[key] = None
 
+    def get_issue_types(self) -> List[Dict[str, Any]]:
+        """Get available issue types for the current project"""
+        project_data = self.connect_handler.get_project(self.project_key)
+        if project_data and "issueTypes" in project_data:
+            return project_data["issueTypes"]
+        else:
+            self.logger.warning(f"Could not retrieve issue types for project {self.project_key}")
+            return []
+    
+    def get_issue_type_id(self, name: str) -> Optional[str]:
+        """Get the ID for a given issue type name"""
+        issue_types = self.get_issue_types()
+        for issue_type in issue_types:
+            if issue_type.get("name", "").lower() == name.lower():
+                return issue_type.get("id")
+        
+        # Log available issue types if the requested one wasn't found
+        available_types = [it.get("name") for it in issue_types]
+        self.logger.warning(f"Issue type '{name}' not found. Available types: {available_types}")
+        return None
+
+    def get_issue_type_by_hierarchy(self, hierarchy_level: int) -> Optional[str]:
+        """Get issue type ID based on hierarchy level
+        
+        Args:
+            hierarchy_level: The hierarchy level (1 for Epic, 0 for Task, -1 for Sub-task)
+            
+        Returns:
+            Issue type ID or None if not found
+        """
+        issue_types = self.get_issue_types()
+        for issue_type in issue_types:
+            if issue_type.get("hierarchyLevel") == hierarchy_level:
+                return issue_type.get("id")
+        return None
+    
     @error_handler
-    def get_fields(self) -> List[Dict]:
+    def get_fields_to_json(self) -> List[Dict]:
         """Get all fields from Jira"""
         if self._cache['fields'] is None:
-            response = self.jira._make_request("GET", "field")
+            response = self.connect_handler._make_request("GET", "field")
             if response.status_code == 200:
                 self._cache['fields'] = response.json()
                 self.json_handler.save_json(self._cache['fields'], "jira_fields.json")
@@ -59,11 +95,11 @@ class JiraGetHandler:
             self.json_handler.save_json(self._cache['field_map'], "field_map.json")
 
     @error_handler
-    def get_issue_types(self) -> List[Dict]:
+    def get_issue_types_to_json(self) -> List[Dict]:
         """Get all issue types"""
         if self._cache['issue_types'] is None:
             try:
-                response = self.jira._make_request("GET", "issuetype")
+                response = self.connect_handler._make_request("GET", "issuetype")
                 if response.status_code == 200:
                     self._cache['issue_types'] = response.json()
                     print("\nDebug - Issue Types Retrieved:")
@@ -121,13 +157,13 @@ class JiraGetHandler:
     def get_field_id(self, field_name: str) -> Optional[str]:
         """Get field ID by name"""
         if self._cache['field_map'] is None:
-            self.get_fields()
+            self.get_fields_to_json()
         return self._cache['field_map'].get(field_name, {}).get('id')
 
     def get_issue_type_id(self, issue_type_name: str) -> Optional[str]:
         """Get issue type ID by name"""
         if self._cache['issue_type_map'] is None:
-            self.get_issue_types()
+            self.get_issue_types_to_json()
         
         if issue_type_name not in self._cache['issue_type_map']:
             print(f"\nDebug - Issue Type Not Found: {issue_type_name}")
@@ -143,26 +179,11 @@ class JiraGetHandler:
         
         return self._cache['issue_type_map'][issue_type_name]['id']
 
-    def get_issue_type_by_hierarchy(self, hierarchy_level: int) -> Optional[str]:
-        """Get issue type ID based on hierarchy level
-        
-        Args:
-            hierarchy_level: The hierarchy level (1 for Epic, 0 for Task, -1 for Sub-task)
-            
-        Returns:
-            Issue type ID or None if not found
-        """
-        issue_types = self.get_issue_types()
-        for issue_type in issue_types:
-            if issue_type.get("hierarchyLevel") == hierarchy_level:
-                return issue_type.get("id")
-        return None
-
     @error_handler
-    def get_components(self) -> List[Dict]:
+    def get_components_to_json(self) -> List[Dict]:
         """Get all project components"""
         if self._cache['components'] is None:
-            response = self.jira._make_request("GET", f"project/{self.project_key}/components")
+            response = self.connect_handler._make_request("GET", f"project/{self.project_key}/components")
             if response.status_code == 200:
                 self._cache['components'] = response.json()
                 self.json_handler.save_json(self._cache['components'], "components.json")
@@ -171,10 +192,10 @@ class JiraGetHandler:
         return self._cache['components']
 
     @error_handler
-    def get_versions(self) -> List[Dict]:
+    def get_versions_to_json(self) -> List[Dict]:
         """Get all project versions"""
         if self._cache['versions'] is None:
-            response = self.jira._make_request("GET", f"project/{self.project_key}/versions")
+            response = self.connect_handler._make_request("GET", f"project/{self.project_key}/versions")
             if response.status_code == 200:
                 self._cache['versions'] = response.json()
                 self.json_handler.save_json(self._cache['versions'], "versions.json")
@@ -183,7 +204,7 @@ class JiraGetHandler:
         return self._cache['versions']
 
     @error_handler
-    def get_work_items(self, jql: Optional[str] = None, fields: Optional[List[str]] = None) -> Dict:
+    def get_work_items_to_json(self, jql: Optional[str] = None, fields: Optional[List[str]] = None) -> Dict:
         """Get work items based on JQL"""
         if not jql:
             jql = f'project = {self.project_key} ORDER BY created DESC'
@@ -210,7 +231,7 @@ class JiraGetHandler:
             "fields": ",".join(fields)
         }
         
-        response = self.jira._make_request("GET", "search", params=params)
+        response = self.connect_handler._make_request("GET", "search", params=params)
         if response.status_code == 200:
             work_items = response.json()
             self.json_handler.save_json(work_items, "work_items.json")
@@ -223,11 +244,11 @@ class JiraGetHandler:
     def fetch_all_data(self) -> Dict[str, Any]:
         """Fetch and save all data types"""
         results = {
-            "fields": self.get_fields(),
-            "issue_types": self.get_issue_types(),
-            "components": self.get_components(),
-            "versions": self.get_versions(),
-            "work_items": self.get_work_items(),
+            "fields": self.get_fields_to_json(),
+            "issue_types": self.get_issue_types_to_json (),
+            "components": self.get_components_to_json(),
+            "versions": self.get_versions_to_json(),
+            "work_items": self.get_work_items_to_json(),
             "field_map": self._cache.get('field_map'),
             "issue_type_map": self._cache.get('issue_type_map')
         }
